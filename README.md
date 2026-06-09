@@ -47,9 +47,9 @@ For the visualization demo:
 uv sync --extra visualize
 ```
 
-The Viser demo needs MuJoCo Warp with per-world `mat_texid` support.
+The Viser demo needs MuJoCo Warp with per-world `mat_texid` support. The uv configuration in this repo currently resolves `mujoco-warp` from `tkelestemur/mujoco_warp@tarik/texture-dr`, so `uv sync --extra visualize` or `uv run --extra visualize ...` installs the feature branch instead of the PyPI package.
 
-Until that support is available in the MuJoCo Warp release you are using, install the feature branch in the same environment:
+If you want to test unpushed local MuJoCo Warp changes, install your local checkout into the same environment after syncing:
 
 ```bash
 uv pip install -e ~/code/mujoco_warp

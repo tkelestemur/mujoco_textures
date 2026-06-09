@@ -48,6 +48,27 @@ class TextureSpec:
   label: str
 
 
+def _ensure_visual_deps() -> None:
+  global mjw, mujoco, wp
+
+  if mujoco is not None and wp is not None and mjw is not None:
+    return
+
+  try:
+    import mujoco as mujoco_module
+    import mujoco_warp as mjw_module
+    import warp as wp_module
+  except ImportError as exc:
+    raise RuntimeError(
+      "This demo requires visualization dependencies. Run with `uv run --extra visualize "
+      "scripts/randomize_textures_viser`, or install `mujoco-textures[visualize]`."
+    ) from exc
+
+  mjw = mjw_module
+  mujoco = mujoco_module
+  wp = wp_module
+
+
 def _default_panda_candidates() -> tuple[Path, ...]:
   return (
     Path.cwd() / "benchmarks/franka_emika_panda/panda.xml",
@@ -177,6 +198,8 @@ def _add_demo_worldbody(spec: mujoco.MjSpec, include_standalone_blocks: bool) ->
 
 
 def _build_demo_spec(panda_xml: Path | None, texture_specs: Sequence[TextureSpec]) -> mujoco.MjSpec:
+  _ensure_visual_deps()
+
   spec = mujoco.MjSpec()
   spec.modelname = "mujoco_textures_randomization"
   spec.option.timestep = 0.01
@@ -198,6 +221,8 @@ def _build_demo_spec(panda_xml: Path | None, texture_specs: Sequence[TextureSpec
 
 
 def _set_initial_state(mjm: mujoco.MjModel, mjd: mujoco.MjData) -> None:
+  _ensure_visual_deps()
+
   for joint_name, value in PANDA_INITIAL_QPOS.items():
     joint_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
     if joint_id >= 0:
@@ -240,6 +265,8 @@ def _env_offsets(num_envs: int) -> np.ndarray:
 
 
 def _make_texture_preview(mjm: mujoco.MjModel, texture_id: int) -> np.ndarray:
+  _ensure_visual_deps()
+
   width = int(mjm.tex_width[texture_id])
   height = int(mjm.tex_height[texture_id])
   nchannel = int(mjm.tex_nchannel[texture_id])
@@ -262,6 +289,8 @@ def _unpack_rgb(packed_row: np.ndarray, width: int, height: int) -> np.ndarray:
 
 
 def _patch_mjviser_compat() -> None:
+  _ensure_visual_deps()
+
   if not hasattr(mujoco.mjtEnableBit, "mjENBL_MULTICCD"):
     setattr(mujoco.mjtEnableBit, "mjENBL_MULTICCD", 0)
 
@@ -281,8 +310,6 @@ def _control_targets(step: int, num_envs: int, ctrlrange: np.ndarray) -> np.ndar
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-  global mjw, mujoco, wp
-
   args = _parse_args(argv)
   if args.num_envs < 1:
     raise ValueError(f"--num-envs must be positive, got {args.num_envs}.")
@@ -291,20 +318,12 @@ def main(argv: Sequence[str] | None = None) -> None:
   if args.render_every < 1:
     raise ValueError(f"--render-every must be positive, got {args.render_every}.")
 
+  _ensure_visual_deps()
   try:
-    import mujoco as mujoco_module
-    import mujoco_warp as mjw_module
     import viser
-    import warp as wp_module
     from mjviser import Viewer as MjViserViewer
   except ImportError as exc:
-    raise RuntimeError(
-      "This demo requires visualization dependencies. Run with `uv run --extra visualize "
-      "scripts/randomize_textures_viser`, or install `mujoco-textures[visualize]`."
-    ) from exc
-  mjw = mjw_module
-  mujoco = mujoco_module
-  wp = wp_module
+    raise RuntimeError("This demo requires Viser dependencies. Run with `uv run --extra visualize`.") from exc
   _patch_mjviser_compat()
 
   manifest = load_manifest(args.texture_root)

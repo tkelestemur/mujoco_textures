@@ -26,6 +26,9 @@ visualize = [
   "mjviser",
 ]
 
+[tool.uv.sources]
+mujoco-warp = { git = "https://github.com/tkelestemur/mujoco_warp.git", branch = "tarik/texture-dr" }
+
 [project.scripts]
 mujoco-textures-list = "mujoco_textures.textures:main"
 mujoco-textures-download = "mujoco_textures.download_textures:main"
