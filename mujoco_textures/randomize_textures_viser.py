@@ -13,10 +13,10 @@ import numpy as np
 import warp as wp
 
 import mujoco_warp as mjw
-from mujoco_assets.textures import SOURCE_DIRECTORIES
-from mujoco_assets.textures import TextureAsset
-from mujoco_assets.textures import default_texture_root
-from mujoco_assets.textures import load_manifest
+from mujoco_textures.textures import SOURCE_DIRECTORIES
+from mujoco_textures.textures import TextureAsset
+from mujoco_textures.textures import default_texture_root
+from mujoco_textures.textures import load_manifest
 
 TABLE_HALF_EXTENTS = (0.60, 0.45)
 TABLE_TOP_HALF_Z = 0.035
@@ -177,7 +177,7 @@ def _add_demo_worldbody(spec: mujoco.MjSpec, include_standalone_blocks: bool) ->
 
 def _build_demo_spec(panda_xml: Path | None, texture_specs: Sequence[TextureSpec]) -> mujoco.MjSpec:
   spec = mujoco.MjSpec()
-  spec.modelname = "mujoco_assets_texture_randomization"
+  spec.modelname = "mujoco_textures_randomization"
   spec.option.timestep = 0.01
   spec.option.integrator = mujoco.mjtIntegrator.mjINT_IMPLICITFAST
   spec.visual.headlight.active = 0
@@ -292,7 +292,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     import viser
     from mjviser import Viewer as MjViserViewer
   except ImportError as exc:
-    raise RuntimeError("This demo requires the visualize extra: pip install 'mujoco-assets[visualize]'.") from exc
+    raise RuntimeError("This demo requires the visualize extra: pip install 'mujoco-textures[visualize]'.") from exc
   _patch_mjviser_compat()
 
   manifest = load_manifest(args.texture_root)

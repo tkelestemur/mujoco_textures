@@ -1,13 +1,13 @@
-# mujoco_assets
+# mujoco_textures
 
-`mujoco_assets` is a small Python package plus a texture asset checkout for MuJoCo and MuJoCo Warp domain randomization demos. It includes converted texture images, a manifest with source metadata, a downloader that can regenerate the texture set, and a Viser demo for per-world material texture randomization.
+`mujoco_textures` is a small Python package plus a texture asset checkout for MuJoCo and MuJoCo Warp domain randomization demos. It includes converted texture images, a manifest with source metadata, a downloader that can regenerate the texture set, and a Viser demo for per-world material texture randomization.
 
 The package is intended to be useful from downstream environments that compile many candidate textures once and then randomize material texture IDs at reset time.
 
 ## Layout
 
 ```text
-mujoco_assets/
+mujoco_textures/
   textures.py                    # manifest loading and sampling helpers
   download_textures.py           # downloader/converter CLI
   randomize_textures_viser.py    # MuJoCo Warp + Viser demo
@@ -58,14 +58,14 @@ uv pip install -e ~/code/mujoco_warp
 ## List And Sample Textures
 
 ```bash
-uv run mujoco-assets-list
-uv run mujoco-assets-list --source robosuite --paths
+uv run mujoco-textures-list
+uv run mujoco-textures-list --source robosuite --paths
 ```
 
 From Python:
 
 ```python
-from mujoco_assets import load_manifest, sample_textures
+from mujoco_textures import load_manifest, sample_textures
 
 manifest = load_manifest()
 textures = sample_textures(10, seed=0)
@@ -80,7 +80,7 @@ The helper returns resolved image paths that can be added to a `mujoco.MjSpec` b
 
 ```python
 import mujoco
-from mujoco_assets import sample_textures
+from mujoco_textures import sample_textures
 
 spec = mujoco.MjSpec()
 textures = sample_textures(10, seed=7)
@@ -132,13 +132,13 @@ The renderer resolves `mat_texid[world_id, material_id, texture_role]`, so each 
 Run the default four-world demo:
 
 ```bash
-uv run mujoco-assets-viser --num-envs 4 --randomize-every 50
+uv run mujoco-textures-viser --num-envs 4 --randomize-every 50
 ```
 
 The demo uses `benchmarks/franka_emika_panda/panda.xml` automatically if it finds a local `mujoco_warp` checkout at `~/code/mujoco_warp`. You can also pass it explicitly:
 
 ```bash
-uv run mujoco-assets-viser \
+uv run mujoco-textures-viser \
   --panda-xml ~/code/mujoco_warp/benchmarks/franka_emika_panda/panda.xml \
   --source robosuite \
   --max-textures 32
@@ -149,15 +149,15 @@ If no Panda XML is available, the demo still runs a standalone table scene so th
 ## Regenerate Textures
 
 ```bash
-uv run mujoco-assets-download --output-root textures
+uv run mujoco-textures-download --output-root textures
 ```
 
 Useful options:
 
 ```bash
-uv run mujoco-assets-download --output-root textures --skip-polyhaven
-uv run mujoco-assets-download --output-root textures --polyhaven-limit 100
-uv run mujoco-assets-download --output-root textures --size 512 --workers 32
+uv run mujoco-textures-download --output-root textures --skip-polyhaven
+uv run mujoco-textures-download --output-root textures --polyhaven-limit 100
+uv run mujoco-textures-download --output-root textures --size 512 --workers 32
 ```
 
 The downloader discovers images from the upstream sources, center-crops them, resamples them to square RGB PNGs, places them into the source-specific folders, and rewrites `textures/manifest.json`.

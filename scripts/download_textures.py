@@ -1,6 +1,6 @@
-"""CLI wrapper for ``mujoco_assets.download_textures``."""
+"""CLI wrapper for ``mujoco_textures.download_textures``."""
 
-from mujoco_assets.download_textures import main
+from mujoco_textures.download_textures import main
 
 
 if __name__ == "__main__":

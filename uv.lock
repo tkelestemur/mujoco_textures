@@ -387,7 +387,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mujoco-assets"
+name = "mujoco-textures"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

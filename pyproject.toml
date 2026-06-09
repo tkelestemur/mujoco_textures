@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mujoco-assets"
+name = "mujoco-textures"
 version = "0.1.0"
 description = "Texture assets and randomization demos for MuJoCo and MuJoCo Warp."
 readme = "README.md"
@@ -27,19 +27,19 @@ visualize = [
 ]
 
 [project.scripts]
-mujoco-assets-list = "mujoco_assets.textures:main"
-mujoco-assets-download = "mujoco_assets.download_textures:main"
-mujoco-assets-viser = "mujoco_assets.randomize_textures_viser:main"
+mujoco-textures-list = "mujoco_textures.textures:main"
+mujoco-textures-download = "mujoco_textures.download_textures:main"
+mujoco-textures-viser = "mujoco_textures.randomize_textures_viser:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["mujoco_assets"]
+packages = ["mujoco_textures"]
 
 [tool.hatch.build.targets.wheel.force-include]
-"textures" = "mujoco_assets/textures"
+"textures" = "mujoco_textures/textures"
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "/mujoco_assets",
+  "/mujoco_textures",
   "/scripts",
   "/textures",
   "/README.md",

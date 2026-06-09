@@ -22,9 +22,9 @@ from urllib.request import urlopen
 from PIL import Image
 from PIL import ImageOps
 
-from mujoco_assets.textures import SOURCE_DIRECTORIES
+from mujoco_textures.textures import SOURCE_DIRECTORIES
 
-USER_AGENT = "mujoco-assets-texture-fetcher/1.0"
+USER_AGENT = "mujoco-textures-fetcher/1.0"
 DEFAULT_OUTPUT_ROOT = Path.cwd() / "textures"
 
 GR00T_ISAACSIM_CFG_URL = (
