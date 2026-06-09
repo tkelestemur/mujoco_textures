@@ -20,6 +20,8 @@ textures/
 scripts/
   download_textures.py
   randomize_textures_viser.py
+docs/
+  media/fr3_texture_randomization_viser.mp4
 ```
 
 The checked-in texture files are converted to square RGB PNGs. The current manifest contains 954 textures:
@@ -129,6 +131,10 @@ The renderer resolves `mat_texid[world_id, material_id, texture_role]`, so each 
 
 ## Visualize Randomization
 
+<video src="docs/media/fr3_texture_randomization_viser.mp4" controls muted loop playsinline></video>
+
+[Open the FR3 texture randomization demo video](docs/media/fr3_texture_randomization_viser.mp4)
+
 Run the default four-world demo:
 
 ```bash
@@ -141,16 +147,18 @@ The same entry point is also available as a script path:
 uv run scripts/randomize_textures_viser --num-envs 4 --randomize-every 50
 ```
 
-The demo uses `benchmarks/franka_emika_panda/panda.xml` automatically if it finds a local `mujoco_warp` checkout at `~/code/mujoco_warp`. You can also pass it explicitly:
+The demo uses the MuJoCo Menagerie `franka_fr3_v2` model. If `fr3v2.xml` is not found locally, the script downloads and caches the model under `~/.cache/mujoco_textures/mujoco_menagerie/franka_fr3_v2`.
+
+You can also pass a Menagerie checkout explicitly:
 
 ```bash
 uv run mujoco-textures-viser \
-  --panda-xml ~/code/mujoco_warp/benchmarks/franka_emika_panda/panda.xml \
+  --fr3-xml ~/code/mujoco_menagerie/franka_fr3_v2/fr3v2.xml \
   --source robosuite \
   --max-textures 32
 ```
 
-If no Panda XML is available, the demo still runs a standalone table scene so the texture randomization path can be inspected.
+Use `--no-download-fr3` if you want the command to fail instead of downloading the Menagerie assets when the FR3 model is missing.
 
 ## Regenerate Textures
 

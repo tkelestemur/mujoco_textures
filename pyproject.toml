@@ -43,6 +43,7 @@ packages = ["mujoco_textures"]
 [tool.hatch.build.targets.sdist]
 include = [
   "/mujoco_textures",
+  "/docs",
   "/scripts",
   "/textures",
   "/README.md",

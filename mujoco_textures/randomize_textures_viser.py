@@ -4,9 +4,15 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import json
 import math
+import os
 from pathlib import Path
 from typing import Sequence
+from urllib.error import HTTPError
+from urllib.error import URLError
+from urllib.request import Request
+from urllib.request import urlopen
 
 import numpy as np
 
@@ -25,20 +31,21 @@ TABLE_TOP_CENTER_Z = -TABLE_TOP_HALF_Z
 TABLE_LEG_HALF_Z = 0.20
 TABLE_LEG_CENTER_Z = TABLE_TOP_CENTER_Z - TABLE_TOP_HALF_Z - TABLE_LEG_HALF_Z
 
-PANDA_CTRL_BASE = np.array([0.0, -0.55, 0.0, -1.85, 0.0, 1.70, 0.0, 0.02], dtype=np.float32)
-PANDA_CTRL_AMP = np.array([0.45, 0.22, 0.38, 0.28, 0.35, 0.30, 0.55, 0.01], dtype=np.float32)
-PANDA_CTRL_PHASES = np.array([0.0, 0.7, 1.6, 2.4, 3.1, 3.8, 4.5, 1.2], dtype=np.float32)
-PANDA_INITIAL_QPOS = {
-  "joint1": 0.0,
-  "joint2": -0.55,
-  "joint3": 0.0,
-  "joint4": -1.85,
-  "joint5": 0.0,
-  "joint6": 1.70,
-  "joint7": 0.0,
-  "finger_joint1": 0.02,
-  "finger_joint2": 0.02,
+FR3_CTRL_BASE = np.array([0.0, -0.55, 0.0, -1.85, 0.0, 1.95, -0.7853], dtype=np.float32)
+FR3_CTRL_AMP = np.array([0.45, 0.22, 0.38, 0.28, 0.35, 0.30, 0.55], dtype=np.float32)
+FR3_CTRL_PHASES = np.array([0.0, 0.7, 1.6, 2.4, 3.1, 3.8, 4.5], dtype=np.float32)
+FR3_INITIAL_QPOS = {
+  "fr3v2_joint1": 0.0,
+  "fr3v2_joint2": -0.55,
+  "fr3v2_joint3": 0.0,
+  "fr3v2_joint4": -1.85,
+  "fr3v2_joint5": 0.0,
+  "fr3v2_joint6": 1.95,
+  "fr3v2_joint7": -0.7853,
 }
+MENAGERIE_FR3_API_ROOT = "https://api.github.com/repos/google-deepmind/mujoco_menagerie/contents/franka_fr3_v2"
+MENAGERIE_REF = "main"
+USER_AGENT = "mujoco-textures-fr3-fetcher/1.0"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -69,31 +76,101 @@ def _ensure_visual_deps() -> None:
   wp = wp_module
 
 
-def _default_panda_candidates() -> tuple[Path, ...]:
+def _cache_root() -> Path:
+  xdg_cache_home = os.environ.get("XDG_CACHE_HOME")
+  if xdg_cache_home:
+    return Path(xdg_cache_home).expanduser()
+  return Path.home() / ".cache"
+
+
+def _default_fr3_dir() -> Path:
+  return _cache_root() / "mujoco_textures" / "mujoco_menagerie" / "franka_fr3_v2"
+
+
+def _default_fr3_candidates() -> tuple[Path, ...]:
   return (
-    Path.cwd() / "benchmarks/franka_emika_panda/panda.xml",
-    Path.home() / "code/mujoco_warp/benchmarks/franka_emika_panda/panda.xml",
+    Path.cwd() / "models/franka_fr3_v2/fr3v2.xml",
+    Path.cwd() / "franka_fr3_v2/fr3v2.xml",
+    Path.home() / "code/mujoco_menagerie/franka_fr3_v2/fr3v2.xml",
+    Path.home() / "code/mujoco_warp/benchmarks/mujoco_menagerie/franka_fr3_v2/fr3v2.xml",
+    _default_fr3_dir() / "fr3v2.xml",
   )
 
 
-def _resolve_panda_xml(panda_xml: Path | None) -> Path | None:
-  if panda_xml is not None:
-    path = panda_xml.expanduser().resolve()
+def _request(url: str) -> bytes:
+  request = Request(url, headers={"User-Agent": USER_AGENT})
+  with urlopen(request, timeout=60) as response:
+    return response.read()
+
+
+def _json(url: str):
+  return json.loads(_request(url).decode("utf-8"))
+
+
+def _with_ref(api_url: str) -> str:
+  if "ref=" in api_url:
+    return api_url
+  separator = "&" if "?" in api_url else "?"
+  return f"{api_url}{separator}ref={MENAGERIE_REF}"
+
+
+def _download_menagerie_dir(api_url: str, target_dir: Path) -> None:
+  target_dir.mkdir(parents=True, exist_ok=True)
+  for item in _json(_with_ref(api_url)):
+    path = target_dir / item["name"]
+    if item["type"] == "dir":
+      _download_menagerie_dir(item["url"], path)
+    elif item["type"] == "file":
+      if path.exists() and path.stat().st_size == int(item["size"]):
+        continue
+      tmp_path = path.with_suffix(path.suffix + ".tmp")
+      tmp_path.write_bytes(_request(item["download_url"]))
+      tmp_path.replace(path)
+
+
+def _ensure_fr3_model(fr3_dir: Path) -> Path:
+  fr3_xml = fr3_dir / "fr3v2.xml"
+  if fr3_xml.exists():
+    return fr3_xml.resolve()
+
+  print(f"Downloading Menagerie franka_fr3_v2 model to {fr3_dir}")
+  try:
+    _download_menagerie_dir(MENAGERIE_FR3_API_ROOT, fr3_dir)
+  except (HTTPError, URLError, TimeoutError) as exc:
+    raise RuntimeError(f"failed to download Menagerie franka_fr3_v2 model to {fr3_dir}") from exc
+
+  if not fr3_xml.exists():
+    raise FileNotFoundError(f"downloaded Menagerie franka_fr3_v2 is missing {fr3_xml}")
+  return fr3_xml.resolve()
+
+
+def _resolve_fr3_xml(fr3_xml: Path | None, fr3_dir: Path | None, download_fr3: bool) -> Path:
+  if fr3_xml is not None:
+    path = fr3_xml.expanduser().resolve()
     if not path.exists():
-      raise FileNotFoundError(f"Panda XML not found: {path}")
+      raise FileNotFoundError(f"FR3 XML not found: {path}")
     return path
-  for candidate in _default_panda_candidates():
+
+  if fr3_dir is not None:
+    candidate = fr3_dir.expanduser().resolve() / "fr3v2.xml"
+    if candidate.exists():
+      return candidate
+    if download_fr3:
+      return _ensure_fr3_model(fr3_dir.expanduser().resolve())
+
+  for candidate in _default_fr3_candidates():
     if candidate.exists():
       return candidate.resolve()
-  return None
+
+  if download_fr3:
+    return _ensure_fr3_model(_default_fr3_dir())
+
+  raise FileNotFoundError("FR3 XML not found. Pass --fr3-xml, --fr3-dir, or allow the default Menagerie download.")
 
 
-def _resolve_meshdir(panda_xml: Path, meshdir: str) -> Path:
-  path = Path(meshdir) if meshdir else panda_xml.parent
-  path = path if path.is_absolute() else panda_xml.parent / path
-  fallback = panda_xml.parent.parent / "mujoco_menagerie/franka_emika_panda/assets"
-  if not path.exists() and fallback.exists():
-    path = fallback
+def _resolve_meshdir(model_xml: Path, meshdir: str) -> Path:
+  path = Path(meshdir) if meshdir else model_xml.parent
+  path = path if path.is_absolute() else model_xml.parent / path
   return path.resolve()
 
 
@@ -197,7 +274,7 @@ def _add_demo_worldbody(spec: mujoco.MjSpec, include_standalone_blocks: bool) ->
       )
 
 
-def _build_demo_spec(panda_xml: Path | None, texture_specs: Sequence[TextureSpec]) -> mujoco.MjSpec:
+def _build_demo_spec(fr3_xml: Path, texture_specs: Sequence[TextureSpec]) -> mujoco.MjSpec:
   _ensure_visual_deps()
 
   spec = mujoco.MjSpec()
@@ -207,29 +284,28 @@ def _build_demo_spec(panda_xml: Path | None, texture_specs: Sequence[TextureSpec
   spec.visual.headlight.active = 0
   spec.visual.quality.shadowsize = 2048
 
-  if panda_xml is not None:
-    panda = mujoco.MjSpec.from_file(panda_xml.as_posix())
-    spec.meshdir = _resolve_meshdir(panda_xml, panda.meshdir).as_posix()
-    panda.meshdir = spec.meshdir
-    panda_anchor = spec.worldbody.add_body(name="panda_anchor", mocap=True)
-    panda_frame = panda_anchor.add_frame(name="panda_mount")
-    spec.attach(panda, frame=panda_frame, prefix="")
+  fr3 = mujoco.MjSpec.from_file(fr3_xml.as_posix())
+  spec.meshdir = _resolve_meshdir(fr3_xml, fr3.meshdir).as_posix()
+  fr3.meshdir = spec.meshdir
+  fr3_anchor = spec.worldbody.add_body(name="fr3_anchor", mocap=True)
+  fr3_frame = fr3_anchor.add_frame(name="fr3_mount")
+  spec.attach(fr3, frame=fr3_frame, prefix="")
 
   _add_demo_assets(spec, texture_specs)
-  _add_demo_worldbody(spec, include_standalone_blocks=panda_xml is None)
+  _add_demo_worldbody(spec, include_standalone_blocks=False)
   return spec
 
 
 def _set_initial_state(mjm: mujoco.MjModel, mjd: mujoco.MjData) -> None:
   _ensure_visual_deps()
 
-  for joint_name, value in PANDA_INITIAL_QPOS.items():
+  for joint_name, value in FR3_INITIAL_QPOS.items():
     joint_id = mujoco.mj_name2id(mjm, mujoco.mjtObj.mjOBJ_JOINT, joint_name)
     if joint_id >= 0:
       mjd.qpos[mjm.jnt_qposadr[joint_id]] = value
 
   if mjm.nu:
-    mjd.ctrl[: min(mjm.nu, PANDA_CTRL_BASE.size)] = PANDA_CTRL_BASE[: min(mjm.nu, PANDA_CTRL_BASE.size)]
+    mjd.ctrl[: min(mjm.nu, FR3_CTRL_BASE.size)] = FR3_CTRL_BASE[: min(mjm.nu, FR3_CTRL_BASE.size)]
   mjm.qpos0[:] = mjd.qpos
   mujoco.mj_forward(mjm, mjd)
 
@@ -244,7 +320,9 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
   parser.add_argument("--seed", type=int, default=0, help="random seed for texture choices")
   parser.add_argument("--device", default=None, help="Warp device, for example cuda:0 or cpu")
   parser.add_argument("--port", type=int, default=8080, help="Viser server port")
-  parser.add_argument("--panda-xml", type=Path, default=None, help="optional path to franka_emika_panda/panda.xml")
+  parser.add_argument("--fr3-xml", type=Path, default=None, help="optional path to Menagerie franka_fr3_v2/fr3v2.xml")
+  parser.add_argument("--fr3-dir", type=Path, default=None, help="optional directory containing franka_fr3_v2 assets")
+  parser.add_argument("--no-download-fr3", action="store_true", help="do not download Menagerie FR3 assets if missing")
   parser.add_argument("--texture-root", type=Path, default=default_texture_root(), help="directory containing manifest.json")
   parser.add_argument("--source", choices=sorted(SOURCE_DIRECTORIES), default=None, help="sample from one texture source")
   parser.add_argument("--max-textures", type=int, default=64, help="maximum textures to compile; 0 uses every manifest entry")
@@ -299,9 +377,9 @@ def _control_targets(step: int, num_envs: int, ctrlrange: np.ndarray) -> np.ndar
   nu = ctrlrange.shape[0]
   if nu == 0:
     return np.zeros((num_envs, 0), dtype=np.float32)
-  base = PANDA_CTRL_BASE[:nu]
-  amp = PANDA_CTRL_AMP[:nu]
-  phases = PANDA_CTRL_PHASES[:nu]
+  base = FR3_CTRL_BASE[:nu]
+  amp = FR3_CTRL_AMP[:nu]
+  phases = FR3_CTRL_PHASES[:nu]
   targets = np.empty((num_envs, nu), dtype=np.float32)
   for world in range(num_envs):
     phase = step * 0.025 + world * 0.55
@@ -333,16 +411,14 @@ def main(argv: Sequence[str] | None = None) -> None:
     max_textures=args.max_textures,
     seed=args.seed,
   )
-  panda_xml = _resolve_panda_xml(args.panda_xml)
-  if panda_xml is None:
-    print("No Panda XML found. Running the standalone table demo; pass --panda-xml to include the Panda arm.")
+  fr3_xml = _resolve_fr3_xml(args.fr3_xml, args.fr3_dir, download_fr3=not args.no_download_fr3)
 
   wp.config.quiet = True
   wp.init()
   if args.device is not None:
     wp.set_device(args.device)
 
-  mjm = _build_demo_spec(panda_xml, texture_specs).compile()
+  mjm = _build_demo_spec(fr3_xml, texture_specs).compile()
   mjd = mujoco.MjData(mjm)
   _set_initial_state(mjm, mjd)
 
@@ -518,6 +594,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     print(
       f"Running texture randomization demo at http://localhost:{args.port}\n"
       f"  worlds: {num_envs}\n"
+      f"  FR3 XML: {fr3_xml}\n"
       f"  textures compiled: {len(texture_specs)}\n"
       f"  texture reset interval: {args.randomize_every} physics steps\n"
       f"  Warp render resolution: {args.width}x{args.height}"
