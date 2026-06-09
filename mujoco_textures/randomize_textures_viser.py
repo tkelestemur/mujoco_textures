@@ -8,15 +8,16 @@ import math
 from pathlib import Path
 from typing import Sequence
 
-import mujoco
 import numpy as np
-import warp as wp
 
-import mujoco_warp as mjw
 from mujoco_textures.textures import SOURCE_DIRECTORIES
 from mujoco_textures.textures import TextureAsset
 from mujoco_textures.textures import default_texture_root
 from mujoco_textures.textures import load_manifest
+
+mujoco = None
+wp = None
+mjw = None
 
 TABLE_HALF_EXTENTS = (0.60, 0.45)
 TABLE_TOP_HALF_Z = 0.035
@@ -280,6 +281,8 @@ def _control_targets(step: int, num_envs: int, ctrlrange: np.ndarray) -> np.ndar
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+  global mjw, mujoco, wp
+
   args = _parse_args(argv)
   if args.num_envs < 1:
     raise ValueError(f"--num-envs must be positive, got {args.num_envs}.")
@@ -289,10 +292,19 @@ def main(argv: Sequence[str] | None = None) -> None:
     raise ValueError(f"--render-every must be positive, got {args.render_every}.")
 
   try:
+    import mujoco as mujoco_module
+    import mujoco_warp as mjw_module
     import viser
+    import warp as wp_module
     from mjviser import Viewer as MjViserViewer
   except ImportError as exc:
-    raise RuntimeError("This demo requires the visualize extra: pip install 'mujoco-textures[visualize]'.") from exc
+    raise RuntimeError(
+      "This demo requires visualization dependencies. Run with `uv run --extra visualize "
+      "scripts/randomize_textures_viser`, or install `mujoco-textures[visualize]`."
+    ) from exc
+  mjw = mjw_module
+  mujoco = mujoco_module
+  wp = wp_module
   _patch_mjviser_compat()
 
   manifest = load_manifest(args.texture_root)

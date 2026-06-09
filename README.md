@@ -135,6 +135,12 @@ Run the default four-world demo:
 uv run mujoco-textures-viser --num-envs 4 --randomize-every 50
 ```
 
+The same entry point is also available as a script path:
+
+```bash
+uv run scripts/randomize_textures_viser --num-envs 4 --randomize-every 50
+```
+
 The demo uses `benchmarks/franka_emika_panda/panda.xml` automatically if it finds a local `mujoco_warp` checkout at `~/code/mujoco_warp`. You can also pass it explicitly:
 
 ```bash

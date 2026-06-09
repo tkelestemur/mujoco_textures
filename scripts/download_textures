@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+"""CLI wrapper for ``mujoco_textures.download_textures``."""
+
+from mujoco_textures.download_textures import main
+
+
+if __name__ == "__main__":
+  main()
